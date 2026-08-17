@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "african-villas"
+version = "0.3.0"
+description = "Локальное приложение для блоков №1–3 бизнес-модели African Villas"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.8,<7",
+    "pydantic>=2.10,<3",
+    "openai-codex>=0.1.0",
+    "pypdf>=6,<7",
+    "pypdfium2>=4.30,<5",
+    "reportlab>=4.2,<5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+]
+
+[project.scripts]
+african-villas = "african_villas.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
