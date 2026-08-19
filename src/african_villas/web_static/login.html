@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Вход · African Villas</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-story">
+      <span class="brand-mark large">AV</span>
+      <span class="eyebrow">African Villas</span>
+      <h1>Проект начинается с ясной картины.</h1>
+      <p class="lead">Юридическая среда, сценарии застройки и предварительная смета — в защищённом рабочем пространстве.</p>
+    </section>
+    <form id="login-form" class="login-card">
+      <span class="eyebrow">Защищённый контур</span>
+      <h2>Вход в систему</h2>
+      <p>Используйте выданную учётную запись.</p>
+      <label>Логин<input name="username" autocomplete="username" required autofocus></label>
+      <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+      <p id="login-error" class="login-error" role="alert"></p>
+      <button class="button primary" type="submit">Войти</button>
+    </form>
+  </main>
+  <script src="/login.js" defer></script>
+</body>
+</html>

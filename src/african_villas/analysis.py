@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import json
+import os
 import re
 from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
@@ -32,6 +33,13 @@ class CodexUnavailableError(RuntimeError):
 
 def codex_sdk_available() -> bool:
     return importlib.util.find_spec("openai_codex") is not None
+
+
+async def authenticate_codex_client(codex: Any) -> None:
+    """Use explicit API-key auth for unattended runs when a key is configured."""
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if api_key:
+        await codex.login_api_key(api_key)
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
@@ -189,6 +197,7 @@ class AsyncCodexAnalyzer:
         self._codex = self._codex_class()
         self._parallel_slots = asyncio.Semaphore(4)
         await self._codex.__aenter__()
+        await authenticate_codex_client(self._codex)
         return self
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .analysis import (
     CODEX_MODEL,
     CodexUnavailableError,
+    authenticate_codex_client,
     codex_output_schema,
     codex_sdk_available,
     extract_json_object,
@@ -157,6 +158,7 @@ class Block3CodexAnalyzer:
         self._codex = self._codex_class()
         self._slots = asyncio.Semaphore(4)
         await self._codex.__aenter__()
+        await authenticate_codex_client(self._codex)
         return self
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
