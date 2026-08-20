@@ -170,7 +170,7 @@ jobs:
             & ssh @common $target powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded
             if ($LASTEXITCODE -ne 0) { throw "Remote PowerShell failed with exit code $LASTEXITCODE." }
           }
-          Invoke-RemotePowerShell "New-Item -ItemType Directory -Force -LiteralPath 'C:\AfricanVillasDeploy\incoming' | Out-Null"
+          Invoke-RemotePowerShell "New-Item -ItemType Directory -Force -Path 'C:\AfricanVillasDeploy\incoming' | Out-Null"
           $scpTarget = "${target}:C:/AfricanVillasDeploy/incoming/$(Split-Path -Leaf $remoteBundle)"
           & scp @common $bundles[0].FullName $scpTarget
           if ($LASTEXITCODE -ne 0) { throw "SCP failed with exit code $LASTEXITCODE." }
