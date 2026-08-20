@@ -10,6 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "PySide6>=6.8,<7",
+    "fastapi>=0.116,<1",
+    "uvicorn>=0.35,<1",
+    "python-multipart>=0.0.20,<1",
     "pydantic>=2.10,<3",
     "openai-codex>=0.1.0",
     "pypdf>=6,<7",
@@ -19,17 +22,24 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "httpx>=0.28,<1",
     "pytest>=8.3,<9",
 ]
 
 [project.scripts]
 african-villas = "african_villas.__main__:main"
+african-villas-web = "african_villas.web_cli:main"
+african-villas-backup = "african_villas.backup_cli:main"
+african-villas-codex-auth = "african_villas.codex_auth_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+african_villas = ["web_static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

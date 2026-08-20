@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>African Villas</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" type="button" data-action="home" aria-label="К списку проектов">
+      <span class="brand-mark">AV</span>
+      <span><strong>African Villas</strong><small>development workspace</small></span>
+    </button>
+    <div class="topbar-actions">
+      <span id="connection" class="connection">Подключение…</span>
+      <button id="new-project" class="button primary" type="button" data-action="new-project">Новый проект</button>
+      <button class="button ghost" type="button" data-action="logout">Выйти</button>
+    </div>
+  </header>
+
+  <main id="app" class="shell" aria-live="polite">
+    <section class="loading-card"><span class="spinner"></span> Загружаем рабочее пространство…</section>
+  </main>
+
+  <dialog id="project-dialog">
+    <form id="project-form" method="dialog" class="dialog-card">
+      <div class="dialog-heading">
+        <div><span class="eyebrow">Новый объект</span><h2>Создать проект</h2></div>
+        <button class="icon-button" type="button" data-action="close-dialog" aria-label="Закрыть">×</button>
+      </div>
+      <label>Название<input name="name" required maxlength="200" placeholder="Например, Villas Zanzibar"></label>
+      <label>Заказчик<input name="client_name" maxlength="300" placeholder="Компания или инвестор"></label>
+      <label>Описание<textarea name="description" maxlength="4000" rows="4" placeholder="Коротко о замысле проекта"></textarea></label>
+      <div class="dialog-actions">
+        <button class="button ghost" type="button" data-action="close-dialog">Отмена</button>
+        <button class="button primary" type="submit">Создать проект</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

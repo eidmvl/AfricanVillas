@@ -1,0 +1,10 @@
+{
+  "WebUsername": "admin",
+  "WebPassword": "REPLACE_WITH_A_LONG_RANDOM_PASSWORD",
+  "SessionSecret": "REPLACE_WITH_AT_LEAST_32_RANDOM_BYTES",
+  "CodexAuthMode": "chatgpt",
+  "OpenAIApiKey": "",
+  "AllowedHosts": "villas.bimplatforma.ru,localhost,127.0.0.1",
+  "PublicOrigin": "https://villas.bimplatforma.ru",
+  "MaxUploadBytes": 52428800
+}

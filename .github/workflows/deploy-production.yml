@@ -1,0 +1,181 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: african-villas-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Resolve source commit
+        id: source
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_run') {
+            $sha = '${{ github.event.workflow_run.head_sha }}'
+          } else {
+            $sha = '${{ github.sha }}'
+          }
+          if ($sha -notmatch '^[a-f0-9]{40}$') {
+            throw 'GitHub did not provide a valid commit SHA.'
+          }
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+
+      - name: Check out exact commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+
+      - name: Verify commit belongs to main
+        shell: pwsh
+        run: |
+          git fetch origin main --depth=1
+          git merge-base --is-ancestor '${{ steps.source.outputs.sha }}' origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Refusing to deploy a commit that is not on main.'
+          }
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install build and test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check build
+          python -m pip install --disable-pip-version-check -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Build deployment bundle
+        id: bundle
+        shell: pwsh
+        run: |
+          $sha = '${{ steps.source.outputs.sha }}'
+          $payload = Join-Path $env:RUNNER_TEMP 'payload'
+          $windows = Join-Path $payload 'windows'
+          $dist = Join-Path $env:RUNNER_TEMP 'dist'
+          New-Item -ItemType Directory -Force -Path $windows, $dist | Out-Null
+          python -m build --wheel --outdir $dist
+          if ($LASTEXITCODE -ne 0) { throw 'Wheel build failed.' }
+          $wheels = @(Get-ChildItem -LiteralPath $dist -Filter '*.whl' -File)
+          if ($wheels.Count -ne 1) { throw 'Expected exactly one wheel.' }
+          Copy-Item -LiteralPath $wheels[0].FullName -Destination $payload
+          Copy-Item -Path 'infra/windows/*.ps1' -Destination $windows
+          Copy-Item -LiteralPath 'infra/windows/config.production.example.json' -Destination $windows
+          $manifest = [ordered]@{
+            repository = '${{ github.repository }}'
+            commit = $sha
+            run_id = '${{ github.run_id }}'
+            run_attempt = '${{ github.run_attempt }}'
+          }
+          $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $payload 'manifest.json') -Encoding utf8NoBOM
+          $bundlePath = Join-Path $env:RUNNER_TEMP "african-villas-$sha.zip"
+          Compress-Archive -Path $payload -DestinationPath $bundlePath
+          "path=$bundlePath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload immutable deployment artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: african-villas-${{ steps.source.outputs.sha }}
+          path: ${{ steps.bundle.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+
+  deploy:
+    needs: build
+    if: needs.build.result == 'success' && vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://villas.bimplatforma.ru
+    env:
+      PROD_HOST: ${{ vars.PROD_HOST }}
+      PROD_SSH_USER: ${{ vars.PROD_SSH_USER }}
+      PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+      PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+
+    steps:
+      - name: Download exact deployment artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: african-villas-${{ needs.build.outputs.sha }}
+          path: ${{ runner.temp }}/artifact
+
+      - name: Configure pinned SSH connection
+        id: ssh
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PROD_HOST) -or
+              [string]::IsNullOrWhiteSpace($env:PROD_SSH_USER) -or
+              [string]::IsNullOrWhiteSpace($env:PROD_SSH_PRIVATE_KEY) -or
+              [string]::IsNullOrWhiteSpace($env:PROD_SSH_KNOWN_HOSTS)) {
+            throw 'Production environment variables or secrets are missing.'
+          }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'production_ed25519'
+          $knownHostsPath = Join-Path $env:RUNNER_TEMP 'known_hosts'
+          [IO.File]::WriteAllText($keyPath, $env:PROD_SSH_PRIVATE_KEY.Trim() + "`n", [Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText($knownHostsPath, $env:PROD_SSH_KNOWN_HOSTS.Trim() + "`n", [Text.UTF8Encoding]::new($false))
+          & icacls.exe $keyPath '/inheritance:r' "/grant:r" "$($env:USERNAME):(R)" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to protect temporary SSH key.' }
+          "key=$keyPath" >> $env:GITHUB_OUTPUT
+          "known_hosts=$knownHostsPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload and deploy through SSH
+        shell: pwsh
+        run: |
+          $sha = '${{ needs.build.outputs.sha }}'
+          $bundles = @(Get-ChildItem -LiteralPath (Join-Path $env:RUNNER_TEMP 'artifact') -Filter '*.zip' -File)
+          if ($bundles.Count -ne 1) { throw 'Expected exactly one downloaded bundle.' }
+          $hash = (Get-FileHash -LiteralPath $bundles[0].FullName -Algorithm SHA256).Hash
+          $remoteBundle = "C:\AfricanVillasDeploy\incoming\african-villas-$sha-${{ github.run_attempt }}.zip"
+          $target = "$env:PROD_SSH_USER@$env:PROD_HOST"
+          $common = @(
+            '-i', '${{ steps.ssh.outputs.key }}',
+            '-o', 'BatchMode=yes',
+            '-o', 'IdentitiesOnly=yes',
+            '-o', 'ServerAliveInterval=15',
+            '-o', 'StrictHostKeyChecking=yes',
+            '-o', 'UserKnownHostsFile=${{ steps.ssh.outputs.known_hosts }}'
+          )
+          function Invoke-RemotePowerShell([string]$Script) {
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Script))
+            & ssh @common $target powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded
+            if ($LASTEXITCODE -ne 0) { throw "Remote PowerShell failed with exit code $LASTEXITCODE." }
+          }
+          Invoke-RemotePowerShell "New-Item -ItemType Directory -Force -LiteralPath 'C:\AfricanVillasDeploy\incoming' | Out-Null"
+          $scpTarget = "${target}:C:/AfricanVillasDeploy/incoming/$(Split-Path -Leaf $remoteBundle)"
+          & scp @common $bundles[0].FullName $scpTarget
+          if ($LASTEXITCODE -ne 0) { throw "SCP failed with exit code $LASTEXITCODE." }
+          $deploy = "& 'C:\AfricanVillas\runtime\deploy-artifact.ps1' -BundlePath '$remoteBundle' -ExpectedSha256 '$hash' -CommitSha '$sha'"
+          Invoke-RemotePowerShell $deploy
+          $shortSha = $sha.Substring(0, 12)
+          $verify = "`$health = Invoke-RestMethod -Uri 'http://127.0.0.1:8092/health' -TimeoutSec 10; if (-not `$health.ok -or `$health.release -notlike '*$shortSha*') { throw 'Production health check returned an unexpected release.' }; `$health | ConvertTo-Json -Compress"
+          Invoke-RemotePowerShell $verify
