@@ -30,6 +30,7 @@ dev = [
 african-villas = "african_villas.__main__:main"
 african-villas-web = "african_villas.web_cli:main"
 african-villas-backup = "african_villas.backup_cli:main"
+african-villas-codex-auth = "african_villas.codex_auth_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

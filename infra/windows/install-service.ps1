@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$InstallRoot = "C:\AfricanVillas",
-    [string]$SourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+    [string]$SourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
+    [string]$ReleaseId = ""
 )
 
 Set-StrictMode -Version Latest
@@ -13,6 +14,9 @@ $configPath = Join-Path $runtimeRoot "config.production.json"
 $releasePointer = Join-Path $runtimeRoot "current-release.txt"
 $webScript = Join-Path $runtimeRoot "start-web.ps1"
 $backupScript = Join-Path $runtimeRoot "backup-data.ps1"
+$loginScript = Join-Path $runtimeRoot "login-codex.ps1"
+$deployScript = Join-Path $runtimeRoot "deploy-artifact.ps1"
+$codexHome = Join-Path $runtimeRoot "codex-home"
 
 foreach ($directory in @(
     $runtimeRoot,
@@ -41,8 +45,25 @@ if ([string]::IsNullOrWhiteSpace($config.SessionSecret) -or $config.SessionSecre
 
 & icacls.exe $configPath "/inheritance:r" "/grant:r" "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Unable to protect $configPath" }
+& icacls.exe $codexHome "/inheritance:r" "/grant:r" "*S-1-5-18:(OI)(CI)(F)" "*S-1-5-32-544:(OI)(CI)(F)" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Unable to protect $codexHome" }
+$authModeProperty = $config.PSObject.Properties["CodexAuthMode"]
+$authMode = if ($null -eq $authModeProperty) { "chatgpt" } else { [string]$authModeProperty.Value }
+if ($authMode -notin @("chatgpt", "api")) { throw "CodexAuthMode must be chatgpt or api" }
+$codexConfig = @(
+    'cli_auth_credentials_store = "file"',
+    ('forced_login_method = "{0}"' -f $authMode)
+) -join [Environment]::NewLine
+[IO.File]::WriteAllText((Join-Path $codexHome "config.toml"), $codexConfig, [Text.UTF8Encoding]::new($false))
 
-$releaseId = Get-Date -Format "yyyyMMdd-HHmmss"
+if ([string]::IsNullOrWhiteSpace($ReleaseId)) {
+    $releaseId = Get-Date -Format "yyyyMMdd-HHmmss"
+} else {
+    if ($ReleaseId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$') {
+        throw "ReleaseId may contain only letters, digits, dots, underscores, and hyphens"
+    }
+    $releaseId = $ReleaseId
+}
 $releasePath = [IO.Path]::GetFullPath((Join-Path $releasesRoot $releaseId))
 $releaseBoundary = [IO.Path]::GetFullPath($releasesRoot).TrimEnd('\') + '\'
 if (-not $releasePath.StartsWith($releaseBoundary, [StringComparison]::OrdinalIgnoreCase)) {
@@ -58,6 +79,8 @@ if ($LASTEXITCODE -ne 0) { throw "Package installation failed" }
 
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "start-web.ps1") -Destination $webScript -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "backup-data.ps1") -Destination $backupScript -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "login-codex.ps1") -Destination $loginScript -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "deploy-artifact.ps1") -Destination $deployScript -Force
 
 $databasePath = Join-Path $runtimeRoot "data\african_villas.db"
 if (Test-Path -LiteralPath $databasePath -PathType Leaf) {
@@ -105,7 +128,7 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
     Start-Sleep -Seconds 1
     try {
         $health = Invoke-RestMethod -Uri "http://127.0.0.1:8092/health" -TimeoutSec 2
-        if ($health.ok) { $healthy = $true; break }
+        if ($health.ok -and $health.release -eq $releaseId) { $healthy = $true; break }
     } catch {
         # The new process may still be starting.
     }

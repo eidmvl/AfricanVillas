@@ -40,6 +40,7 @@ def test_health_is_public_but_application_requires_auth(tmp_path: Path) -> None:
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["service"] == "african-villas-web"
+        assert health.json()["release"] == "development"
         assert client.get("/robots.txt").text == "User-agent: *\nDisallow: /\n"
 
         unauthorized = client.get("/api/config")

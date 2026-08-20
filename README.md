@@ -52,6 +52,8 @@ $env:AFRICAN_VILLAS_SESSION_SECRET = "local-session-secret-at-least-32-bytes"
 
 Схема безопасного развёртывания на общем Windows VPS описана в [инструкции](docs/deployment-windows-vps.md). Сервер приложения слушает только `127.0.0.1:8092`; внешний HTTPS предоставляет существующий Caddy через отдельный хост `villas.bimplatforma.ru`.
 
+На VPS Codex может работать через отдельный вход в ChatGPT и использовать лимиты подписки — API-ключ не обязателен. Для удалённой Windows предусмотрен device-code login и изолированный кэш авторизации African Villas. Режим с `OPENAI_API_KEY` остаётся доступным как необязательная альтернатива.
+
 ## Где хранятся данные
 
 - база проектов и версий: `data\african_villas.db`;

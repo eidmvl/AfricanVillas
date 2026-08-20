@@ -48,10 +48,22 @@ $env:AFRICAN_VILLAS_SESSION_SECRET = [string]$config.SessionSecret
 $env:AFRICAN_VILLAS_ALLOWED_HOSTS = [string]$config.AllowedHosts
 $env:AFRICAN_VILLAS_PUBLIC_ORIGIN = [string]$config.PublicOrigin
 $env:AFRICAN_VILLAS_MAX_UPLOAD_BYTES = [string]$config.MaxUploadBytes
+$env:AFRICAN_VILLAS_RELEASE = Split-Path -Leaf $currentRelease
 $env:CODEX_HOME = Join-Path $runtimeRoot "codex-home"
 $env:PYTHONUTF8 = "1"
-if (-not [string]::IsNullOrWhiteSpace($config.OpenAIApiKey)) {
-    $env:OPENAI_API_KEY = [string]$config.OpenAIApiKey
+$authModeProperty = $config.PSObject.Properties["CodexAuthMode"]
+$authMode = if ($null -eq $authModeProperty) { "chatgpt" } else { [string]$authModeProperty.Value }
+if ($authMode -notin @("chatgpt", "api")) {
+    throw "CodexAuthMode must be chatgpt or api"
+}
+$env:AFRICAN_VILLAS_CODEX_AUTH_MODE = $authMode
+$apiKeyProperty = $config.PSObject.Properties["OpenAIApiKey"]
+$apiKey = if ($null -eq $apiKeyProperty) { "" } else { [string]$apiKeyProperty.Value }
+if ($authMode -eq "api" -and [string]::IsNullOrWhiteSpace($apiKey)) {
+    throw "OpenAIApiKey is required when CodexAuthMode is api"
+}
+if ($authMode -eq "api") {
+    $env:OPENAI_API_KEY = $apiKey
 }
 
 $logPath = Join-Path $logRoot ("web-{0}.log" -f (Get-Date -Format "yyyy-MM-dd"))

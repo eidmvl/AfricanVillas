@@ -336,6 +336,7 @@ def create_app(
             "ok": database == "ok",
             "service": "african-villas-web",
             "version": __version__,
+            "release": os.environ.get("AFRICAN_VILLAS_RELEASE", "development"),
             "database": database,
         }
 

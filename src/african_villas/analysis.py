@@ -36,9 +36,14 @@ def codex_sdk_available() -> bool:
 
 
 async def authenticate_codex_client(codex: Any) -> None:
-    """Use explicit API-key auth for unattended runs when a key is configured."""
+    """Use an API key when selected; otherwise reuse the dedicated ChatGPT cache."""
+    auth_mode = os.environ.get("AFRICAN_VILLAS_CODEX_AUTH_MODE", "chatgpt").strip().lower()
+    if auth_mode not in {"chatgpt", "api"}:
+        raise RuntimeError("AFRICAN_VILLAS_CODEX_AUTH_MODE must be 'chatgpt' or 'api'")
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if api_key:
+    if auth_mode == "api":
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is required when CodexAuthMode is 'api'")
         await codex.login_api_key(api_key)
 
 
