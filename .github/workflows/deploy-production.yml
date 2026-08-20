@@ -42,7 +42,7 @@ jobs:
           "sha=$sha" >> $env:GITHUB_OUTPUT
 
       - name: Check out exact commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.source.outputs.sha }}
 
@@ -56,7 +56,7 @@ jobs:
           }
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -98,7 +98,7 @@ jobs:
           "path=$bundlePath" >> $env:GITHUB_OUTPUT
 
       - name: Upload immutable deployment artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: african-villas-${{ steps.source.outputs.sha }}
           path: ${{ steps.bundle.outputs.path }}
@@ -123,7 +123,7 @@ jobs:
 
     steps:
       - name: Download exact deployment artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: african-villas-${{ needs.build.outputs.sha }}
           path: ${{ runner.temp }}/artifact
