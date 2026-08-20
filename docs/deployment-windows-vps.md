@@ -80,6 +80,7 @@ C:\AfricanVillas\runtime\login-codex.ps1 -StatusOnly
 
 - обязательное подтверждение владельца перед каждым деплоем;
 - разрешение деплоя только из `main`;
+- репозиторную переменную `PRODUCTION_DEPLOY_ENABLED = true` только после завершения первого bootstrap;
 - переменные `PROD_HOST` и `PROD_SSH_USER`;
 - секрет `PROD_SSH_PRIVATE_KEY` с отдельным ключом только для автоматического деплоя;
 - секрет `PROD_SSH_KNOWN_HOSTS` с заранее проверенной строкой host key VPS.
@@ -88,6 +89,9 @@ C:\AfricanVillas\runtime\login-codex.ps1 -StatusOnly
 ChatGPT в GitHub не передаются. Деплой использует GitHub-hosted Windows runner; на общем VPS не
 устанавливается self-hosted runner, который мог бы выполнять произвольный код репозитория как
 постоянная служба.
+
+Пока `PRODUCTION_DEPLOY_ENABLED` отсутствует или не равна `true`, workflow только собирает и
+сохраняет проверенный артефакт, но не открывает SSH-сессию и не создаёт незащищённый deployment.
 
 Workflow заново прогоняет тесты, собирает wheel и ZIP с `manifest.json`, привязанным к точному
 commit SHA. После загрузки сервер проверяет SHA-256 ZIP и соответствие commit в манифесте. Затем

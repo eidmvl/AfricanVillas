@@ -110,6 +110,7 @@ jobs:
 
   deploy:
     needs: build
+    if: needs.build.result == 'success' && vars.PRODUCTION_DEPLOY_ENABLED == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
     environment:
