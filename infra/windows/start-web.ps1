@@ -66,6 +66,15 @@ if ($authMode -eq "api") {
     $env:OPENAI_API_KEY = $apiKey
 }
 
-$logPath = Join-Path $logRoot ("web-{0}.log" -f (Get-Date -Format "yyyy-MM-dd"))
-& $pythonPath -m african_villas.web_cli *>> $logPath
-exit $LASTEXITCODE
+$logStamp = Get-Date -Format "yyyy-MM-dd-HHmmss"
+$stdoutLog = Join-Path $logRoot ("web-{0}-stdout.log" -f $logStamp)
+$stderrLog = Join-Path $logRoot ("web-{0}-stderr.log" -f $logStamp)
+$process = Start-Process `
+    -FilePath $pythonPath `
+    -ArgumentList @("-m", "african_villas.web_cli") `
+    -NoNewWindow `
+    -Wait `
+    -PassThru `
+    -RedirectStandardOutput $stdoutLog `
+    -RedirectStandardError $stderrLog
+exit $process.ExitCode
